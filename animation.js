@@ -53,16 +53,6 @@ function drawMaskedEmoji(emoji, revealProgress) {
     ctx.drawImage(offCanvas, 0, 0);
 }
 
-
-// function easeIn(t) {
-//     return t * t;
-// }
-
-// function easeOut(t) {
-//     return 1 - (1 - t) * (1 - t);
-// }
-
-
 function drawMorphSequence(progress) {
     const count = emojis.length;
     const segment = 1 / (count - 1);
