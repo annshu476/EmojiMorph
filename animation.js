@@ -1,68 +1,129 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// Emoji sequence (later this comes from user input)
-const emojis = ["😀", "😎", "🔥", "💀"];
+//this canva is invisible
+const offCanvas = document.createElement("canvas");
+offCanvas.width = canvas.width;
+offCanvas.height = canvas.height;
+const offCtx = offCanvas.getContext("2d");
 
-// Animation settings
-const totalDuration = 3000; // 3 seconds
-const framesPerSecond = 60;
+const emojis = ["😀", "😐", "😡", "🔥", "💀"];
 
+const totalDuration = 4000; // 4 seconds
 let startTime = null;
 
-// Core animation loop
 function animate(timestamp) {
-    //progress start from 0 
     if (!startTime) startTime = timestamp;
 
     const elapsed = timestamp - startTime;
-
-    // Normalize progress (0 → 1)
     const progress = Math.min(elapsed / totalDuration, 1);
 
-    drawFrame(progress);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawMorphSequence(progress);
 
     if (progress < 1) {
         requestAnimationFrame(animate);
     }
 }
 
-// Draw one frame
-function drawFrame(progress) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+function drawMaskedEmoji(emoji, revealProgress) {
+    offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
 
-    const emojiCount = emojis.length;
-    const segment = 1 / emojiCount;
+    const centerX = offCanvas.width / 2;
+    const centerY = offCanvas.height / 2;
 
-    for (let i = 0; i < emojiCount; i++) {
-        const start = i * segment;
-        const end = start + segment;
+    // Draw emoji normally on offscreen canvas
+    offCtx.font = `100px serif`;
+    offCtx.textAlign = "center";
+    offCtx.textBaseline = "middle";
+    offCtx.fillText(emoji, centerX, centerY);
 
-        if (progress >= start && progress <= end) {
-            const localProgress = (progress - start) / segment;
-            drawEmoji(emojis[i], localProgress);
-            break;
-        }
-    }
+    // Apply mask
+    offCtx.globalCompositeOperation = "destination-in";
+    offCtx.fillRect(
+        0,
+        offCanvas.height * (1 - revealProgress),
+        offCanvas.width,
+        offCanvas.height * revealProgress
+    );
+
+    offCtx.globalCompositeOperation = "source-over";
+
+    // Draw masked result onto main canvas
+    ctx.drawImage(offCanvas, 0, 0);
 }
 
-// Draw a single emoji with animation
-function drawEmoji(emoji, progress) {
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
 
-    // Scale + fade animation
-    const scale = 0.5 + progress * 0.5;
-    const opacity = progress;
+// function easeIn(t) {
+//     return t * t;
+// }
 
+// function easeOut(t) {
+//     return 1 - (1 - t) * (1 - t);
+// }
+
+
+function drawMorphSequence(progress) {
+    const count = emojis.length;
+    const segment = 1 / (count - 1);
+
+    const index = Math.min(
+        Math.floor(progress / segment),
+        count - 2
+    );
+
+    const raw = (progress - index * segment) / segment;
+
+    const HOLD_END = 0.3;
+    const FADE_END = 0.75;
+
+    const currentEmoji = emojis[index];
+    const nextEmoji = emojis[index + 1];
+
+    // ---- HOLD PHASE ----
+    if (raw <= HOLD_END) {
+        drawEmoji(
+            currentEmoji,
+            canvas.width / 2,
+            canvas.height / 2,
+            1,
+            1
+        );
+        return;
+    }
+
+    // ---- MORPH PHASE ----
+    const t = Math.min((raw - HOLD_END) / (FADE_END - HOLD_END), 1);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Old emoji shrinks away (no mask)
+    if (t < 1) {
+        drawEmoji(
+            currentEmoji,
+            canvas.width / 2,
+            canvas.height / 2,
+            1 - t * 0.05,
+            1 - t
+        );
+    }
+
+    // New emoji reveals progressively (MASKED)
+    drawMaskedEmoji(nextEmoji, t);
+}
+
+
+
+
+function drawEmoji(emoji, x, y, scale, opacity) {
     ctx.save();
     ctx.globalAlpha = opacity;
     ctx.font = `${100 * scale}px serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(emoji, centerX, centerY);
+    ctx.fillText(emoji, x, y);
     ctx.restore();
 }
 
-// Start animation
+
 requestAnimationFrame(animate);
